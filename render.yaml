@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: eleicao2026
+    runtime: python
+    plan: starter
+    buildCommand: bash build.sh
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 60
+    healthCheckPath: /
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: eleicao2026-cache
+          property: connectionString
+  - type: keyvalue
+    name: eleicao2026-cache
+    plan: starter

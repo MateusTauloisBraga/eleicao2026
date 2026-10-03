@@ -1,0 +1,164 @@
+[
+  {
+    "uf": "AC",
+    "name": "Acre",
+    "electorate": 588433,
+    "region": "Norte"
+  },
+  {
+    "uf": "AL",
+    "name": "Alagoas",
+    "electorate": 2325656,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "AP",
+    "name": "Amapá",
+    "electorate": 550687,
+    "region": "Norte"
+  },
+  {
+    "uf": "AM",
+    "name": "Amazonas",
+    "electorate": 2647748,
+    "region": "Norte"
+  },
+  {
+    "uf": "BA",
+    "name": "Bahia",
+    "electorate": 11291528,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "CE",
+    "name": "Ceará",
+    "electorate": 6820673,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "DF",
+    "name": "Distrito Federal",
+    "electorate": 2203045,
+    "region": "Centro-Oeste"
+  },
+  {
+    "uf": "ES",
+    "name": "Espírito Santo",
+    "electorate": 2921506,
+    "region": "Sudeste"
+  },
+  {
+    "uf": "GO",
+    "name": "Goiás",
+    "electorate": 4870354,
+    "region": "Centro-Oeste"
+  },
+  {
+    "uf": "MA",
+    "name": "Maranhão",
+    "electorate": 5042999,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "MT",
+    "name": "Mato Grosso",
+    "electorate": 2469414,
+    "region": "Centro-Oeste"
+  },
+  {
+    "uf": "MS",
+    "name": "Mato Grosso do Sul",
+    "electorate": 1996510,
+    "region": "Centro-Oeste"
+  },
+  {
+    "uf": "MG",
+    "name": "Minas Gerais",
+    "electorate": 16290870,
+    "region": "Sudeste"
+  },
+  {
+    "uf": "PA",
+    "name": "Pará",
+    "electorate": 6082312,
+    "region": "Norte"
+  },
+  {
+    "uf": "PB",
+    "name": "Paraíba",
+    "electorate": 3091684,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "PR",
+    "name": "Paraná",
+    "electorate": 8475632,
+    "region": "Sul"
+  },
+  {
+    "uf": "PE",
+    "name": "Pernambuco",
+    "electorate": 7018098,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "PI",
+    "name": "Piauí",
+    "electorate": 2573810,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "RJ",
+    "name": "Rio de Janeiro",
+    "electorate": 12827296,
+    "region": "Sudeste"
+  },
+  {
+    "uf": "RN",
+    "name": "Rio Grande do Norte",
+    "electorate": 2554727,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "RS",
+    "name": "Rio Grande do Sul",
+    "electorate": 8593469,
+    "region": "Sul"
+  },
+  {
+    "uf": "RO",
+    "name": "Rondônia",
+    "electorate": 1232936,
+    "region": "Norte"
+  },
+  {
+    "uf": "RR",
+    "name": "Roraima",
+    "electorate": 366240,
+    "region": "Norte"
+  },
+  {
+    "uf": "SC",
+    "name": "Santa Catarina",
+    "electorate": 5489658,
+    "region": "Sul"
+  },
+  {
+    "uf": "SP",
+    "name": "São Paulo",
+    "electorate": 34667793,
+    "region": "Sudeste"
+  },
+  {
+    "uf": "SE",
+    "name": "Sergipe",
+    "electorate": 1671801,
+    "region": "Nordeste"
+  },
+  {
+    "uf": "TO",
+    "name": "Tocantins",
+    "electorate": 1094003,
+    "region": "Norte"
+  }
+]
