@@ -19,3 +19,4 @@ services:
   - type: keyvalue
     name: eleicao2026-cache
     plan: starter
+    ipAllowList: []
