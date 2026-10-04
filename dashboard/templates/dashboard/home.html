@@ -10,7 +10,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/" aria-label="Eleição 2026 início"><span class="brandmark">26</span><span>Eleição <b>2026</b></span></a>
-    <div class="live-state"><span class="pulse" id="statusDot"></span><span id="statusText">Modo de simulação</span></div>
+    <div class="live-state"><span class="pulse" id="statusDot"></span><span id="statusText">TSE oficial · aguardando atualização</span></div>
   </header>
   <nav class="app-tabs" role="tablist" aria-label="Seções da central">
     <button id="resultsTab" class="app-tab is-active" role="tab" aria-selected="true" aria-controls="resultsView" type="button">Apuração</button>
@@ -18,14 +18,13 @@
   </nav>
   <main class="shell" id="resultsView" role="tabpanel" aria-labelledby="resultsTab">
     <section class="intro">
-      <div><div class="eyebrow">CENTRAL DE APURAÇÃO · 1º E 2º TURNOS</div><h1>O mapa muda a cada urna.</h1><p>Resultados oficiais do TSE ou uma simulação gradual para explorar como a cobertura de cada estado afeta a projeção nacional.</p><p class="api-info" id="apiInfo">TSE pausado no modo de simulação. No modo oficial, a atualização será automática a cada 10 segundos.</p></div>
+      <div><div class="eyebrow">CENTRAL DE APURAÇÃO · 1º E 2º TURNOS</div><h1>O mapa muda a cada urna.</h1><p>Resultados oficiais do TSE e projeção conforme avança a apuração de cada estado.</p><p class="api-info" id="apiInfo">Consultando os arquivos oficiais do TSE a cada 10 segundos.</p></div>
       <div class="toolbar">
-        <label>Modo<select id="modeSelect"><option value="demo">Simulação</option><option value="live">TSE oficial</option></select></label>
         <label>Disputa<select id="officeSelect"><option value="president">Presidente · Brasil</option><option value="governor_mg">Governador · Minas Gerais</option></select></label>
         <label>Turno<select id="turnSelect"><option value="1">1º turno</option><option value="2">2º turno</option></select></label>
       </div>
     </section>
-    <div class="notice" id="notice" role="status">Simulação demonstrativa: os números são sintéticos e não representam pesquisas ou resultados reais.</div>
+    <div class="notice" id="notice" role="status">Aguardando os primeiros boletins oficiais do TSE.</div>
     <section class="metrics" id="metrics"></section>
     <section class="workspace">
       <article class="card map-card">
@@ -37,7 +36,7 @@
         <section id="stateDetail" class="state-detail" aria-live="polite"><p class="detail-empty">Clique em um estado no mapa para ver o percentual apurado e a distribuição dos votos válidos.</p></section>
       </article>
       <article class="card trend-card">
-        <div class="cardhead"><div><div class="eyebrow">AGREGADO NACIONAL</div><h2>Apuração e projeção</h2><p class="subhead">Percentual projetado por candidato conforme avança o colégio eleitoral apurado.</p></div><div class="play-controls" id="demoControls"><button id="playButton" class="primary-button" type="button">▶ Simular chegada</button><button id="stepButton" class="icon-button" type="button" title="Avançar uma atualização">+1</button><button id="resetButton" class="icon-button" type="button" title="Reiniciar simulação">↺</button></div></div>
+        <div class="cardhead"><div><div class="eyebrow">AGREGADO NACIONAL</div><h2>Apuração e projeção</h2><p class="subhead">Percentual projetado por candidato conforme avança o colégio eleitoral apurado.</p></div></div>
         <div class="chart-wrap"><svg id="trendChart" viewBox="0 0 980 440" role="img" aria-label="Gráfico de percentual observado e projetado por cobertura eleitoral"></svg></div>
         <div id="chartLegend" class="chart-legend"></div>
         <div class="model-note"><span class="model-icon">ƒ</span><div><b>Modelo de projeção</b><p id="modelNote"></p><small id="probabilityNote"></small></div></div>
@@ -47,10 +46,10 @@
       <div class="cardhead"><div><div class="eyebrow">COLÉGIO ELEITORAL</div><h2>Detalhe por estado</h2><p class="subhead">Peso projetado proporcional ao eleitorado e à participação estimada.</p></div><div class="small-stat" id="updateLabel">Aguardando dados</div></div>
       <div class="table-scroll"><table><thead><tr><th>Estado</th><th class="num">Eleitorado</th><th class="num">Apurado</th><th>Candidato à frente</th><th class="num">Observado</th><th class="num">Projeção final</th><th class="num">Tendência</th></tr></thead><tbody id="stateRows"></tbody></table></div>
     </section>
-    <footer><span>Fontes: TSE (dados oficiais quando publicados) · simulação local determinística.</span><span>As projeções são exploratórias e não substituem a totalização oficial.</span></footer>
+    <footer><span>Fonte dos votos: TSE.</span><span>As projeções são exploratórias e não substituem a totalização oficial.</span></footer>
   </main>
   <main id="pollsView" class="poll-view" role="tabpanel" aria-labelledby="pollsTab" hidden><iframe id="pollsFrame" title="Agregado de pesquisas eleitorais e previsões" src="{% static 'dashboard/polls.html' %}" loading="lazy"></iframe></main>
   <script>window.DASHBOARD={snapshotUrl:"{% url 'snapshot' %}",mapUrl:"{% static 'dashboard/states.geojson' %}"};</script>
-  <script src="{% static 'dashboard/app.js' %}?v=4"></script>
+  <script src="{% static 'dashboard/app.js' %}?v=5"></script>
 </body>
 </html>

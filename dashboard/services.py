@@ -8,7 +8,6 @@ import random
 import re
 import unicodedata
 from datetime import datetime, timezone as datetime_timezone
-from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -36,13 +35,6 @@ CANDIDATES = {
     ],
 }
 
-# Valores finais ocultos usados somente pelo gerador demonstrativo, em votos válidos.
-DEMO_FINAL = {
-    "president": {"AC": .39, "AL": .59, "AP": .41, "AM": .55, "BA": .66, "CE": .65, "DF": .43, "ES": .43, "GO": .42, "MA": .69, "MT": .41, "MS": .40, "MG": .51, "PA": .51, "PB": .65, "PR": .38, "PE": .64, "PI": .68, "RJ": .45, "RN": .62, "RS": .46, "RO": .44, "RR": .44, "SC": .37, "SP": .46, "SE": .64, "TO": .52},
-    "governor_mg": {"MG": [.33, .41, .26]},
-}
-
-
 def _normalized(value: str) -> str:
     value = unicodedata.normalize("NFKD", str(value or ""))
     return "".join(c for c in value if not unicodedata.combining(c)).lower().strip()
@@ -57,7 +49,7 @@ def _number(value, default=0.0) -> float:
         return default
 
 
-def _fetch_json(url: str, timeout=5):
+def _fetch_json(url: str, timeout=8):
     key = "tse-json:" + str(abs(hash(url)))
     cached = cache.get(key)
     if cached is not None:
@@ -65,15 +57,20 @@ def _fetch_json(url: str, timeout=5):
             raise FileNotFoundError("Arquivo ainda não publicado pelo TSE; nova tentativa em breve.")
         return cached
     req = Request(url, headers={"User-Agent": "Eleicao2026Dashboard/1.0 (local research)"})
-    try:
-        with urlopen(req, timeout=timeout) as response:
-            data = json.loads(response.read().decode("utf-8-sig"))
-            cache.set(key, data, TSE_REFRESH_SECONDS)
-            return data
-    except HTTPError as exc:
-        if exc.code == 404:
-            cache.set(key, {"_not_found": True}, 60)
-        raise
+    for attempt in range(2):
+        try:
+            with urlopen(req, timeout=timeout) as response:
+                data = json.loads(response.read().decode("utf-8-sig"))
+                cache.set(key, data, TSE_REFRESH_SECONDS)
+                return data
+        except HTTPError as exc:
+            if exc.code == 404:
+                cache.set(key, {"_not_found": True}, TSE_REFRESH_SECONDS)
+            raise
+        except (URLError, TimeoutError):
+            if attempt:
+                raise
+            time.sleep(.2)
 
 
 def _config(base: str, environment: str):
@@ -90,6 +87,8 @@ def _config(base: str, environment: str):
 def _find_election(config: dict, office: str, turn: int):
     wanted_cargo = "1" if office == "president" else "3"
     for pleito in config.get("pl", []):
+        if pleito.get("c") != "ele2026":
+            continue
         for election in pleito.get("e", []):
             cargo_codes = {str(c.get("cd")) for abr in election.get("abr", []) for c in abr.get("cp", [])}
             if wanted_cargo not in cargo_codes:
@@ -135,7 +134,7 @@ def _extract_live_row(data: dict, uf: str, office: str):
         for group in cargo.get("agr", []):
             for party in group.get("par", []):
                 for candidate in party.get("cand", []):
-                    name = candidate.get("nm") or candidate.get("nmu") or ""
+                    name = candidate.get("nmu") or candidate.get("nm") or ""
                     official_names.append(name)
                     normalized = _normalized(name)
                     for key, aliases in wanted.items():
@@ -172,10 +171,6 @@ def live_rows(office: str, turn: int):
     base = os.getenv("TSE_BASE_URL", ROOT)
     environment = os.getenv("TSE_ENVIRONMENT", "oficial")
     try:
-        if environment == "oficial":
-            start = datetime(2026, 10, 4 if turn == 1 else 25, 17, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
-            if datetime.now(ZoneInfo("America/Sao_Paulo")) < start:
-                raise RuntimeError(f"A divulgação oficial do {turn}º turno começa em {start:%d/%m/%Y às %H:%M}, horário de Brasília.")
         config = _config(base, environment)
         cache_id = f"tse-data:{office}:{turn}:{environment}:{base}"
         cached = cache.get(cache_id)
@@ -204,7 +199,7 @@ def live_rows(office: str, turn: int):
             raise RuntimeError("Ainda não há arquivos de resultado para este cargo/turno. " + (errors[0] if errors else ""))
         matched = {key for row in rows for key in row.get("matched_keys", [])}
         missing_candidates = [candidate["name"] for candidate in CANDIDATES[office] if candidate["key"] not in matched]
-        if missing_candidates:
+        if missing_candidates and any(row.get("valid_votes", 0) > 0 for row in rows):
             raise RuntimeError("O TSE publicou arquivos, mas os nomes não foram associados a: " + ", ".join(missing_candidates) + ". Revise os aliases em dashboard/services.py.")
         if office == "president":
             received = {row["uf"]: row for row in rows}
@@ -222,57 +217,6 @@ def live_rows(office: str, turn: int):
         return result
     except (HTTPError, URLError, TimeoutError, ValueError, LookupError, OSError) as exc:
         raise RuntimeError(str(exc)) from exc
-
-
-def _demo_base(office, uf):
-    return DEMO_FINAL[office].get(uf)
-
-
-def _demo_share(office, uf, progress, step):
-    candidate_list = CANDIDATES[office]
-    base = _demo_base(office, uf)
-    if base is None:
-        return [0.0] * len(candidate_list)
-    # Pequenos deslocamentos por estado e etapa criam fases iniciais enviesadas, sem ruído aleatório.
-    seed = sum(ord(c) for c in uf)
-    if office == "president":
-        amplitude = ((seed % 13) - 6) * .009
-        swing = math.sin((step + seed % 7) * .57) * .027
-        red = min(.89, max(.12, base + (amplitude + swing) * (1 - progress) * 1.6))
-        return [red, 1 - red - .035]
-    red, blue, green = base
-    drift = math.sin((step + seed % 9) * .52) * .11 * (1 - progress)
-    return [max(.04, red - drift * .5), max(.04, blue + drift * .4), max(.04, green + drift * .1)]
-
-
-def demo_rows(office: str, step: int):
-    step = max(0, min(int(step), 60))
-    ufs = ["MG"] if office == "governor_mg" else [s["uf"] for s in STATES]
-    rows = []
-    for i, uf in enumerate(ufs):
-        meta = STATE_BY_UF[uf]
-        delay = (i * 7 + 3) % 11
-        pace = .047 + (i % 5) * .0022
-        progress = min(.995, max(0.0, (step - delay) * pace))
-        hist = []
-        first = max(0, step - 25)
-        for t in range(first, step + 1):
-            p = min(.995, max(0.0, (t - delay) * pace))
-            if p <= 0:
-                continue
-            shares = _demo_share(office, uf, p, t)
-            hist.append({"progress": p, "shares": shares})
-        valid_final_est = meta["electorate"] * .76 * .965
-        valid = valid_final_est * progress
-        shares_now = _demo_share(office, uf, progress, step) if progress else [0.0] * len(CANDIDATES[office])
-        cand_data = {}
-        for index, cand in enumerate(CANDIDATES[office]):
-            votes = valid * shares_now[index]
-            cand_data[cand["key"]] = {"votes": round(votes), "share": shares_now[index] if progress else None, "official_name": cand["name"]}
-        rows.append({"uf": uf, "name": meta["name"], "region": meta["region"], "electorate": meta["electorate"],
-                     "counted_electorate": round(meta["electorate"] * progress), "progress": progress,
-                     "valid_votes": round(valid), "candidates": cand_data, "history": hist, "source": "Simulação"})
-    return rows
 
 
 def _weighted_line(points):
@@ -363,15 +307,11 @@ def _forecast(rows, office):
         per_state.append(row)
     # Pesos finais usam o colégio eleitoral multiplicado pela participação estimada de cada UF.
     for row in per_state:
-        if row.get("source")=="Simulação":
-            p=row.get("progress",0)
-            row["forecast_valid_votes"]=row.get("valid_votes",0)/max(p,.04) if p>0 else row.get("electorate",0)*.76*.965
-        else:
-            eligible=row.get("electorate",0)
-            counted=row.get("counted_electorate",0)
-            participation=(row.get("valid_votes",0)/max(1,counted)) if counted>0 else .72
-            remaining=max(0,eligible-counted)*min(.98,max(.35,participation))
-            row["forecast_valid_votes"]=row.get("valid_votes",0)+remaining
+        eligible=row.get("electorate",0)
+        counted=row.get("counted_electorate",0)
+        participation=(row.get("valid_votes",0)/max(1,counted)) if counted>0 else .72
+        remaining=max(0,eligible-counted)*min(.98,max(.35,participation))
+        row["forecast_valid_votes"]=row.get("valid_votes",0)+remaining
     denom=sum(x["forecast_valid_votes"] for x in per_state) or 1
     aggregate={}
     for c in candidates:
@@ -413,21 +353,10 @@ def _forecast(rows, office):
             "probability_note":"Probabilidades exploratórias condicionadas ao modelo e às incertezas assumidas; ainda não calibradas em backtest eleitoral."}
 
 
-def build_snapshot(office: str, mode: str, step: int, turn: int):
-    if office not in CANDIDATES: raise ValueError("Cargo desconhecido")
-    candidates=CANDIDATES[office]
-    if mode=="demo":
-        rows=demo_rows(office,step)
-        forecast=_forecast(rows,office)
-        history=[]
-        start=max(0,int(step)-24)
-        for t in range(start,int(step)+1):
-            histrows=demo_rows(office,t)
-            raw=forecast_raw(histrows,candidates)
-            histforecast=_forecast(histrows,office)
-            history.append({"step":t,"progress":histforecast["progress"],"observed":raw,"forecast":{c["key"]:next((x["projected_pct"] for x in histforecast["candidates"] if x["key"]==c["key"]),None) for c in candidates}})
-        forecast.update({"mode":"demo","turn":turn,"step":int(step),"updated_at":"Simulação determinística","history":history,"errors":[]})
-        return forecast
+def build_snapshot(office: str, turn: int):
+    if office not in CANDIDATES:
+        raise ValueError("Cargo desconhecido")
+    candidates = CANDIDATES[office]
     live=live_rows(office,turn)
     rows=live["rows"]
     for r in rows:
@@ -437,15 +366,25 @@ def build_snapshot(office: str, mode: str, step: int, turn: int):
     history=cache.get(histkey,[])
     for row in rows:
         if row.get("valid_votes",0)>0:
-            history.append({"uf":row["uf"],"progress":row["progress"],"shares":[row.get("candidates",{}).get(c["key"],{}).get("share",0) or 0 for c in candidates]})
+            previous = next((point for point in reversed(history) if point["uf"] == row["uf"]), None)
+            if previous and previous.get("valid_votes") == row["valid_votes"] and previous["progress"] == row["progress"]:
+                continue
+            history.append({"uf":row["uf"],"progress":row["progress"],"valid_votes":row["valid_votes"],
+                            "shares":[row.get("candidates",{}).get(c["key"],{}).get("share",0) or 0 for c in candidates]})
     history=history[-400:]
     cache.set(histkey,history,3600)
     for row in rows:
         row["history"]=[{"progress":x["progress"],"shares":x["shares"]} for x in history if x["uf"]==row["uf"]]
     forecast=_forecast(rows,office)
     observed=forecast_raw(rows,candidates)
-    forecast.update({"mode":"live","turn":turn,"step":None,"updated_at":live["updated_at"],"election_id":live["election_id"],"environment":live["environment"],"errors":live["errors"],"api_info":live["api_info"],
-                    "history":[{"step":i,"progress":forecast["progress"],"observed":observed,"forecast":{c["key"]:c["projected_pct"] for c in forecast["candidates"]}} for i in range(min(1,len(history))) ]})
+    trend_key=f"live-trend:{office}:{turn}"
+    trend=cache.get(trend_key,[])
+    if forecast["valid_votes"]>0 and (not trend or trend[-1]["valid_votes"]!=forecast["valid_votes"] or trend[-1]["progress"]!=forecast["progress"]):
+        trend.append({"progress":forecast["progress"],"valid_votes":forecast["valid_votes"],
+                      "observed":observed,"forecast":{c["key"]:c["projected_pct"] for c in forecast["candidates"]}})
+        trend=trend[-200:]
+        cache.set(trend_key,trend,86400)
+    forecast.update({"mode":"live","turn":turn,"updated_at":live["updated_at"],"election_id":live["election_id"],"environment":live["environment"],"errors":live["errors"],"api_info":live["api_info"],"history":trend})
     return forecast
 
 
@@ -466,7 +405,7 @@ def build_shared_live_snapshot(office: str, turn: int):
 
     if cache.add(lock_key, True, timeout=30):
         try:
-            snapshot = build_snapshot(office, "live", 0, turn)
+            snapshot = build_snapshot(office, turn)
             wrapped = {"snapshot": snapshot, "refreshed_at": time.time()}
             cache.set(snapshot_key, wrapped, 120)
             cache.delete(error_key)
