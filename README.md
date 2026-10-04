@@ -12,7 +12,7 @@ Aplicação Django local para acompanhar a totalização do TSE por UF, com mapa
 
 Abra http://127.0.0.1:8000. O painel usa exclusivamente os arquivos oficiais do TSE; antes dos primeiros boletins, mostra zero votos e aguarda atualização.
 
- O Django lê a configuração EA11 em https://resultados.tse.jus.br/oficial/comum/config/ele-c.json, identifica o código da eleição e baixa arquivos EA20 por UF. Em produção, o primeiro pedido após 10 segundos atualiza um snapshot compartilhado via Redis; os demais visitantes recebem o mesmo resultado. Cada atualização presidencial lê 27 arquivos estaduais mais um arquivo Brasil usado como sonda. O app não contorna erros ou limites do TSE; UFs indisponíveis são estimadas com referência regional/nacional e incerteza ampliada. A divulgação de resultados começa no horário definido pelo TSE.
+O Django lê a configuração EA11 em https://resultados.tse.jus.br/oficial/comum/config/ele-c.json, identifica o código da eleição e baixa arquivos EA20 por UF. Em produção, o primeiro pedido após 10 segundos atualiza um snapshot compartilhado via Redis; os demais visitantes recebem o mesmo resultado. Cada ponto novo é gravado no Postgres e recuperado dele caso o Redis reinicie. Cada atualização presidencial lê 27 arquivos estaduais mais um arquivo Brasil usado como sonda. O app não contorna erros ou limites do TSE; UFs indisponíveis são estimadas com referência regional/nacional e incerteza ampliada. A divulgação de resultados começa no horário definido pelo TSE.
 
 O recorte de candidatos/cores é configurado em dashboard/services.py:
 - Lula e Patrus: vermelho.
@@ -36,13 +36,13 @@ A tabela de eleitorado auxiliar está em dashboard/data/electorate.json e é uma
 
 ## Deploy no Render
 
-O arquivo `render.yaml` descreve o serviço Django e um Redis Key Value compartilhado. Para publicar:
+O arquivo `render.yaml` descreve o serviço Django, um Redis Key Value compartilhado e um Postgres Free para o histórico. Para publicar:
 
 1. Envie somente esta pasta para um repositório Git privado.
 2. No Render, escolha **New > Blueprint** e conecte o repositório.
-3. Revise os planos Free do serviço web e do Key Value e os limites de uso da sua conta.
+3. Revise os planos Free do serviço web, do Key Value e do Postgres e os limites de uso da sua conta.
 4. Clique em **Apply** para criar os recursos e aguarde o build/deploy.
 5. Abra a URL `onrender.com` gerada e confirme que a aba de pesquisas e o painel oficial carregam.
 6. Antes dos primeiros boletins, confira a mensagem de espera e a atualização automática.
 
-O `render.yaml` gera `SECRET_KEY`, desliga `DEBUG`, conecta `REDIS_URL`, roda `collectstatic`/migrações e inicia Gunicorn com um worker. O Redis coordena o snapshot único entre visitantes/processos. O SQLite deste app só contém tabelas internas do Django; não é usado para armazenar boletins de apuração. Para domínio próprio, adicione-o ao serviço no painel e configure os registros DNS indicados pelo Render.
+O `render.yaml` gera `SECRET_KEY`, desliga `DEBUG`, conecta `REDIS_URL` e `DATABASE_URL`, roda `collectstatic`/migrações e inicia Gunicorn com um worker. O Redis coordena o snapshot único entre visitantes/processos; o Postgres guarda os pontos do gráfico. Localmente, sem `DATABASE_URL`, o app usa SQLite. O Postgres Free do Render expira 30 dias após a criação. Para domínio próprio, adicione-o ao serviço no painel e configure os registros DNS indicados pelo Render.

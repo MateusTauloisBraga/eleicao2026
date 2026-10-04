@@ -18,7 +18,12 @@ MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "whitenoise.middl
 ROOT_URLCONF = "config.urls"
 TEMPLATES = [{"BACKEND":"django.template.backends.django.DjangoTemplates","DIRS":[],"APP_DIRS":True,"OPTIONS":{"context_processors":["django.template.context_processors.request","django.contrib.auth.context_processors.auth","django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
-DATABASES = {"default":{"ENGINE":"django.db.backends.sqlite3","NAME":BASE_DIR/"db.sqlite3"}}
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=60)}
+else:
+    DATABASES = {"default":{"ENGINE":"django.db.backends.sqlite3","NAME":BASE_DIR/"db.sqlite3"}}
 AUTH_PASSWORD_VALIDATORS = []
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
 import os
@@ -16,6 +17,7 @@ import time
 
 from django.conf import settings
 from django.core.cache import cache
+from .models import ElectionPoint
 
 ROOT = "https://resultados.tse.jus.br"
 TSE_REFRESH_SECONDS = 10
@@ -363,7 +365,26 @@ def build_snapshot(office: str, turn: int):
         r["region"]=STATE_BY_UF.get(r["uf"],{}).get("region")
         r["history"]=[]
     histkey=f"live-history:{office}:{turn}"
-    history=cache.get(histkey,[])
+    trend_key=f"live-trend:{office}:{turn}"
+    history=cache.get(histkey)
+    trend=cache.get(trend_key)
+    if history is None or trend is None:
+        saved=list(ElectionPoint.objects.filter(office=office,turn=turn,election_id=live["election_id"]).order_by("id"))
+        if history is None:
+            history=[]
+            latest_by_uf={}
+            for snapshot in saved:
+                for point in snapshot.state_points:
+                    previous=latest_by_uf.get(point["uf"])
+                    if previous and previous["valid_votes"]==point["valid_votes"] and previous["progress"]==point["progress"]:
+                        continue
+                    history.append(point)
+                    latest_by_uf[point["uf"]]=point
+            history=history[-400:]
+        if trend is None:
+            trend=[{"progress":snapshot.progress,"valid_votes":snapshot.valid_votes,
+                    "observed":snapshot.observed,"forecast":snapshot.forecast,"signature":snapshot.signature}
+                   for snapshot in saved][-5000:]
     for row in rows:
         if row.get("valid_votes",0)>0:
             previous = next((point for point in reversed(history) if point["uf"] == row["uf"]), None)
@@ -377,11 +398,22 @@ def build_snapshot(office: str, turn: int):
         row["history"]=[{"progress":x["progress"],"shares":x["shares"]} for x in history if x["uf"]==row["uf"]]
     forecast=_forecast(rows,office)
     observed=forecast_raw(rows,candidates)
-    trend_key=f"live-trend:{office}:{turn}"
-    trend=cache.get(trend_key,[])
-    if forecast["valid_votes"]>0 and (not trend or trend[-1]["valid_votes"]!=forecast["valid_votes"] or trend[-1]["progress"]!=forecast["progress"]):
+    state_points=[{"uf":row["uf"],"progress":row["progress"],"valid_votes":row["valid_votes"],
+                   "shares":[row.get("candidates",{}).get(c["key"],{}).get("share",0) or 0 for c in candidates]}
+                  for row in rows if row.get("valid_votes",0)>0]
+    signature=hashlib.sha256(json.dumps({"election":live["election_id"],"office":office,"turn":turn,
+                                          "states":[{"uf":row["uf"],"valid_votes":row["valid_votes"],
+                                                     "counted_electorate":row["counted_electorate"],
+                                                     "candidate_votes":{c["key"]:row.get("candidates",{}).get(c["key"],{}).get("votes",0) for c in candidates}}
+                                                    for row in rows]},sort_keys=True).encode()).hexdigest()
+    if forecast["valid_votes"]>0 and (not trend or trend[-1].get("signature")!=signature):
+        projection={c["key"]:c["projected_pct"] for c in forecast["candidates"]}
+        ElectionPoint.objects.get_or_create(signature=signature,defaults={
+            "office":office,"turn":turn,"election_id":live["election_id"],
+            "progress":forecast["progress"],"valid_votes":forecast["valid_votes"],
+            "state_points":state_points,"observed":observed,"forecast":projection})
         trend.append({"progress":forecast["progress"],"valid_votes":forecast["valid_votes"],
-                      "observed":observed,"forecast":{c["key"]:c["projected_pct"] for c in forecast["candidates"]}})
+                      "observed":observed,"forecast":projection,"signature":signature})
         trend=trend[-5000:]
         cache.set(trend_key,trend,172800)
     forecast.update({"mode":"live","turn":turn,"updated_at":live["updated_at"],"election_id":live["election_id"],"environment":live["environment"],"errors":live["errors"],"api_info":live["api_info"],"history":trend})
