@@ -2,7 +2,7 @@
   const $ = id => document.getElementById(id);
   const C = {lula:'#e74646',flavio:'#2875d0',patrus:'#e74646',cleitinho:'#2875d0',kalil:'#14a47a'};
   let geo=null, data=null, selectedUF=null;
-  const candidates = office => office==='president' ? [{key:'lula',name:'Lula',color:C.lula},{key:'flavio',name:'Flávio Bolsonaro',color:C.flavio}] : [{key:'patrus',name:'Patrus Ananias',color:C.patrus},{key:'cleitinho',name:'Kleitinho (Cleitinho Azevedo)',color:C.cleitinho},{key:'kalil',name:'Kalil',color:C.kalil}];
+  const candidates = office => office==='president' ? [{key:'lula',name:'Lula',color:C.lula},{key:'flavio',name:'Flávio Bolsonaro',color:C.flavio}] : [{key:'patrus',name:'Patrus Ananias',color:C.patrus},{key:'cleitinho',name:'Cleitinho Azevedo',color:C.cleitinho},{key:'kalil',name:'Kalil',color:C.kalil}];
   const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nfmt = n => Number(n||0).toLocaleString('pt-BR');
   const pct = n => n==null ? '—' : Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';

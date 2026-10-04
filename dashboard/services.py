@@ -32,7 +32,7 @@ CANDIDATES = {
     ],
     "governor_mg": [
         {"key": "patrus", "name": "Patrus Ananias", "color": "#e74646", "aliases": ["patrus", "patrus ananias"]},
-        {"key": "cleitinho", "name": "Kleitinho (Cleitinho Azevedo)", "color": "#2875d0", "aliases": ["kleitinho", "cleitinho", "cleitinho azevedo"]},
+        {"key": "cleitinho", "name": "Cleitinho Azevedo", "color": "#2875d0", "aliases": ["cleitinho", "cleitinho azevedo"]},
         {"key": "kalil", "name": "Kalil", "color": "#14a47a", "aliases": ["kalil", "alexandre kalil"]},
     ],
 }
