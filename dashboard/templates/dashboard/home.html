@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Eleição 2026 · Apuração e tendências</title>
-  <link rel="stylesheet" href="{% static 'dashboard/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/styles.css' %}?v=2">
 </head>
 <body>
   <header class="topbar">
@@ -26,6 +26,10 @@
     </section>
     <div class="notice" id="notice" role="status">Aguardando os primeiros boletins oficiais do TSE.</div>
     <section class="metrics" id="metrics"></section>
+    <section class="card candidate-summary" aria-labelledby="candidateSummaryTitle">
+      <div class="cardhead"><div><div class="eyebrow">RESULTADO E MODELO</div><h2 id="candidateSummaryTitle">Percentual por candidato</h2><p class="subhead">Votos apurados pelo TSE e projeção final. Os percentuais usam todos os votos válidos, inclusive de candidatos fora deste recorte.</p></div></div>
+      <div class="candidate-summary-grid" id="candidateSummary"></div>
+    </section>
     <section class="workspace">
       <article class="card map-card">
         <div class="cardhead"><div><div class="eyebrow">LIDERANÇA POR ESTADO</div><h2>Mapa eleitoral</h2></div><div class="map-help">Passe o cursor sobre um estado</div></div>
@@ -50,6 +54,6 @@
   </main>
   <main id="pollsView" class="poll-view" role="tabpanel" aria-labelledby="pollsTab" hidden><iframe id="pollsFrame" title="Agregado de pesquisas eleitorais e previsões" src="{% static 'dashboard/polls.html' %}" loading="lazy"></iframe></main>
   <script>window.DASHBOARD={snapshotUrl:"{% url 'snapshot' %}",mapUrl:"{% static 'dashboard/states.geojson' %}"};</script>
-  <script src="{% static 'dashboard/app.js' %}?v=6"></script>
+  <script src="{% static 'dashboard/app.js' %}?v=7"></script>
 </body>
 </html>
