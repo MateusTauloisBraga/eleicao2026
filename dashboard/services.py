@@ -372,7 +372,7 @@ def build_snapshot(office: str, turn: int):
             history.append({"uf":row["uf"],"progress":row["progress"],"valid_votes":row["valid_votes"],
                             "shares":[row.get("candidates",{}).get(c["key"],{}).get("share",0) or 0 for c in candidates]})
     history=history[-400:]
-    cache.set(histkey,history,3600)
+    cache.set(histkey,history,172800)
     for row in rows:
         row["history"]=[{"progress":x["progress"],"shares":x["shares"]} for x in history if x["uf"]==row["uf"]]
     forecast=_forecast(rows,office)
@@ -382,8 +382,8 @@ def build_snapshot(office: str, turn: int):
     if forecast["valid_votes"]>0 and (not trend or trend[-1]["valid_votes"]!=forecast["valid_votes"] or trend[-1]["progress"]!=forecast["progress"]):
         trend.append({"progress":forecast["progress"],"valid_votes":forecast["valid_votes"],
                       "observed":observed,"forecast":{c["key"]:c["projected_pct"] for c in forecast["candidates"]}})
-        trend=trend[-200:]
-        cache.set(trend_key,trend,86400)
+        trend=trend[-5000:]
+        cache.set(trend_key,trend,172800)
     forecast.update({"mode":"live","turn":turn,"updated_at":live["updated_at"],"election_id":live["election_id"],"environment":live["environment"],"errors":live["errors"],"api_info":live["api_info"],"history":trend})
     return forecast
 
