@@ -1,4 +1,6 @@
 from django.urls import path
 from . import views
 
-urlpatterns = [path("", views.index, name="index"), path("api/snapshot/", views.snapshot, name="snapshot")]
+urlpatterns = [path("", views.index, name="index"),
+               path("api/snapshot/", views.snapshot, name="snapshot"),
+               path("api/health/", views.health, name="health")]

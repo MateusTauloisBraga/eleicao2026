@@ -1,12 +1,27 @@
-import json
+import os
+from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 from .services import build_shared_live_snapshot
+from .models import ElectionPoint
 
 
 def index(request):
     return render(request, "dashboard/home.html")
+
+
+@require_GET
+def health(request):
+    try:
+        points = ElectionPoint.objects.count()
+        return JsonResponse({"database_ready": True,
+                             "database_engine": settings.DATABASES["default"]["ENGINE"],
+                             "history_points": points,
+                             "cache_shared": settings.CACHES["default"]["BACKEND"].endswith("RedisCache"),
+                             "commit": os.getenv("RENDER_GIT_COMMIT", "")[:12]})
+    except Exception:
+        return JsonResponse({"database_ready": False}, status=503)
 
 
 @require_GET
