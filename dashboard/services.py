@@ -382,7 +382,7 @@ def _forecast(rows, office):
     return {"candidates":summary,"states":per_state,"electorate":total_electorate,"counted_electorate":counted_electorate,
             "progress":counted_electorate/total_electorate if total_electorate else 0,"valid_votes":round(total_votes),
             "projected_valid_votes":round(denom),"model":"Regressão robusta hierárquica por UF + ponderação pelo eleitorado + Monte Carlo",
-            "method_note":"Inclinação local Huber somente após cobertura e variação suficientes, limitada a 25 pontos percentuais; UFs sem dados recebem referência regional/nacional. A projeção presidencial só é exibida com cobertura territorial e arquivos conciliados.",
+            "method_note":"Projeção exploratória desde os primeiros boletins locais, sujeita a grandes mudanças no início. A inclinação local Huber só é usada após cobertura e variação suficientes e é limitada a 25 pontos percentuais; UFs sem dados recebem referência regional/nacional. Diferenças entre os arquivos BR e locais são sinalizadas.",
             "probability_note":"Probabilidade de vitória indisponível: o modelo ainda não foi calibrado em backtest eleitoral para este cenário."}
 
 
@@ -455,10 +455,8 @@ def build_snapshot(office: str, turn: int):
         check=live.get("national_check") or {}
         official_valid=check.get("official_valid_votes") or 0
         area_valid=check.get("areas_valid_votes") or 0
-        regions={row.get("region") for row in rows if row.get("valid_votes",0)>=1000 and row.get("region") != "Exterior"}
-        forecast["projection_ready"]=(forecast["progress"]>=.15 and len(regions)>=4 and
-                                      official_valid>0 and abs(official_valid-area_valid)<=.05*official_valid)
-        forecast["projection_reason"]=("Cobertura territorial insuficiente ou arquivos BR/UF divergentes."
+        forecast["projection_ready"]=official_valid>0 and area_valid>0
+        forecast["projection_reason"]=("Aguardando os primeiros boletins estaduais."
                                        if not forecast["projection_ready"] else "")
     else:
         forecast["projection_ready"]=forecast["valid_votes"]>0
