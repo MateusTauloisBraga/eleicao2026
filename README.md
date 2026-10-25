@@ -12,14 +12,14 @@ Aplicação Django local para acompanhar a totalização do TSE por UF, com mapa
 
 Abra http://127.0.0.1:8000. O painel usa exclusivamente os arquivos oficiais do TSE; antes dos primeiros boletins, mostra zero votos e aguarda atualização.
 
-O Django lê a configuração EA11 em https://resultados.tse.jus.br/oficial/comum/config/ele-c.json, identifica o código da eleição e baixa arquivos EA20 por UF. Em produção, o primeiro pedido após 10 segundos atualiza um snapshot compartilhado via Redis; os demais visitantes recebem o mesmo resultado. Cada ponto novo é gravado no Postgres e recuperado dele caso o Redis reinicie. Cada atualização presidencial lê 27 arquivos estaduais mais um arquivo Brasil usado como sonda. O app não contorna erros ou limites do TSE; UFs indisponíveis são estimadas com referência regional/nacional e incerteza ampliada. A divulgação de resultados começa no horário definido pelo TSE.
+O Django lê a configuração EA11 em https://resultados.tse.jus.br/oficial/comum/config/ele-c.json, identifica o código da eleição e baixa arquivos EA20 por UF. Em produção, o primeiro pedido após 10 segundos atualiza um snapshot compartilhado via Redis; os demais visitantes recebem o mesmo resultado. Cada ponto novo é gravado no Postgres e recuperado dele caso o Redis reinicie. Cada atualização presidencial lê 27 arquivos estaduais, o arquivo separado do exterior (`ZZ`) e o agregado Brasil (`BR`). O agregado `BR` fornece os votos observados oficiais e confere a soma das 28 localidades; nunca é somado a elas. A projeção territorial usa os arquivos locais e avisa quando a soma não concilia com `BR`, sem pressupor a causa da diferença. O app não contorna erros ou limites do TSE; localidades indisponíveis são estimadas com referência regional/nacional e incerteza ampliada. A divulgação de resultados começa no horário definido pelo TSE.
 
 O recorte de candidatos/cores é configurado em dashboard/services.py:
 - Lula e Patrus: vermelho.
 - Flávio Bolsonaro e Cleitinho: azul.
 - Kalil: verde.
 
-As correspondências de nomes podem precisar de ajuste quando o TSE publicar os nomes oficiais definitivos. O segundo turno só retorna dados quando existir configuração e arquivos para esse turno.
+As correspondências de nomes podem precisar de ajuste quando o TSE publicar os nomes oficiais definitivos. O segundo turno só retorna dados quando existir configuração e arquivos para esse turno. Para governador de MG, o painel exibe o primeiro turno: Cleitinho Azevedo foi eleito nele e não há apuração estadual de segundo turno.
 
 ## Modelo
 
