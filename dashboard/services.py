@@ -402,10 +402,14 @@ def build_snapshot(office: str, turn: int):
     trend=cache.get(trend_key)
     if history is None or trend is None:
         saved=list(ElectionPoint.objects.filter(office=history_office,turn=turn,election_id=live["election_id"]).order_by("id"))
+        legacy=(list(ElectionPoint.objects.filter(office="president:turn2-v2",turn=2,
+                                                 election_id=live["election_id"]).order_by("id"))
+                if office == "president" and turn == 2 else [])
+        historical=[*legacy,*saved]
         if history is None:
             history=[]
             latest_by_uf={}
-            for snapshot in saved:
+            for snapshot in historical:
                 for point in snapshot.state_points:
                     previous=latest_by_uf.get(point["uf"])
                     if previous and previous["valid_votes"]==point["valid_votes"] and previous["progress"]==point["progress"]:
@@ -414,9 +418,15 @@ def build_snapshot(office: str, turn: int):
                     latest_by_uf[point["uf"]]=point
             history=history[-400:]
         if trend is None:
-            trend=[{"progress":snapshot.progress,"valid_votes":snapshot.valid_votes,
-                    "observed":snapshot.observed,"forecast":snapshot.forecast,"signature":snapshot.signature}
-                   for snapshot in saved][-5000:]
+            trend_by_position={}
+            for snapshot in historical:
+                old=snapshot.office=="president:turn2-v2"
+                trend_by_position[(snapshot.progress,snapshot.valid_votes)]={
+                    "progress":snapshot.progress,"valid_votes":snapshot.valid_votes,
+                    "observed":snapshot.observed,
+                    "forecast":({c["key"]:None for c in candidates} if old else snapshot.forecast),
+                    "signature":snapshot.signature}
+            trend=list(trend_by_position.values())[-5000:]
     for row in rows:
         if row.get("valid_votes",0)>0:
             previous = next((point for point in reversed(history) if point["uf"] == row["uf"]), None)
