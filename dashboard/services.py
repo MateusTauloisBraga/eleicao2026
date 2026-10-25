@@ -277,8 +277,12 @@ def _forecast(rows, office):
             if not points and row["candidates"].get(c["key"],{}).get("share") is not None:
                 points=[{"progress":row["progress"],"shares":row["candidates"][c["key"]]["share"]}]
             intercept,slope,rmse=_weighted_line(points)
+            # Variações mínimas de cobertura não identificam uma derivada até 100%.
+            span=points[-1]["progress"]-points[0]["progress"] if len(points)>1 else 0
+            qualified=len(points)>=3 and span>=.05 and row["progress"]>=.15
+            slope=min(.25,max(-.25,slope)) if qualified else 0.0
             fits[row["uf"]][c["key"]]=(intercept,slope,rmse,points)
-            if len(points)>1: global_slopes.append((c["key"],slope,max(.1,row["progress"])))
+            if qualified: global_slopes.append((c["key"],slope,max(.1,row["progress"])))
     global_by_key={c["key"]:0.0 for c in candidates}
     for c in candidates:
         values=[(b,w) for key,b,w in global_slopes if key==c["key"]]
@@ -321,6 +325,11 @@ def _forecast(rows, office):
             row.setdefault("uncertainty",{})[c["key"]]=.25
         row["_fallback"]=True
         per_state.append(row)
+    if office == "president":
+        for row in per_state:
+            total=sum(row["forecast"].get(c["key"],0) or 0 for c in candidates)
+            if total>0:
+                for c in candidates: row["forecast"][c["key"]] = (row["forecast"].get(c["key"],0) or 0)/total
     # Pesos finais usam o colégio eleitoral multiplicado pela participação estimada de cada UF.
     for row in per_state:
         eligible=row.get("electorate",0)
@@ -332,19 +341,27 @@ def _forecast(rows, office):
     aggregate={}
     for c in candidates:
         aggregate[c["key"]]=sum((x["forecast"].get(c["key"]) or 0)*x["forecast_valid_votes"] for x in per_state)/denom
-    # Monte Carlo exploratório: erro local cresce nos estados pouco apurados; inclui choque nacional comum.
+    # Choques nacionais e regionais são correlacionados; votos dos dois finalistas somam 100%.
     rng=random.Random(sum(ord(ch) for ch in office)+sum(int(x.get("progress",0)*10000) for x in per_state))
     sims={c["key"]:[] for c in candidates}; winner_counts={c["key"]:0 for c in candidates}
+    coverage=sum(x.get("counted_electorate",0) for x in per_state)/max(1,sum(x.get("electorate",0) for x in per_state))
     for _ in range(1200):
-        common=rng.gauss(0,.012)
+        common=rng.gauss(0,.06*math.sqrt(max(0,1-coverage)))
+        regions={region:rng.gauss(0,.025*math.sqrt(max(0,1-coverage))) for region in {x.get("region") for x in per_state}}
         totals={c["key"]:0.0 for c in candidates}
         for row in per_state:
             w=row["forecast_valid_votes"]/denom
-            draw=[]
-            for c in candidates:
-                mean=row["forecast"].get(c["key"]) or 0
-                sigma=row["uncertainty"].get(c["key"],.2)
-                draw.append(max(0,rng.gauss(mean+common,sigma)))
+            if office == "president":
+                mean=row["forecast"].get(candidates[0]["key"]) or 0
+                sigma=row["uncertainty"].get(candidates[0]["key"],.2)
+                first=min(1,max(0,rng.gauss(mean+common+regions.get(row.get("region"),0),sigma)))
+                draw=[first,1-first]
+            else:
+                draw=[]
+                for c in candidates:
+                    mean=row["forecast"].get(c["key"]) or 0
+                    sigma=row["uncertainty"].get(c["key"],.2)
+                    draw.append(max(0,rng.gauss(mean+common,sigma)))
             for c,val in zip(candidates,draw): totals[c["key"]]+=w*val
         winner=max(totals,key=totals.get)
         winner_counts[winner]+=1
@@ -358,22 +375,22 @@ def _forecast(rows, office):
         current_total=sum(x.get("valid_votes",0) for x in per_state)
         summary.append({**c,"votes":round(current_votes),"observed_pct":100*current_votes/current_total if current_total else None,
                         "projected_pct":100*aggregate[c["key"]],"interval":[100*quantile(vals,.05),100*quantile(vals,.95)],
-                        "win_probability":winner_counts[c["key"]]/1200})
+                        "win_probability":None})
     total_electorate=sum(x.get("electorate",0) for x in per_state)
     counted_electorate=sum(x.get("counted_electorate",0) for x in per_state)
     total_votes=sum(x.get("valid_votes",0) for x in per_state)
     return {"candidates":summary,"states":per_state,"electorate":total_electorate,"counted_electorate":counted_electorate,
             "progress":counted_electorate/total_electorate if total_electorate else 0,"valid_votes":round(total_votes),
             "projected_valid_votes":round(denom),"model":"Regressão robusta hierárquica por UF + ponderação pelo eleitorado + Monte Carlo",
-            "method_note":"Inclinação local Huber, retração para tendência agregada e suavização crescente com a cobertura; UFs sem dados recebem referência regional/nacional e incerteza maior.",
-            "probability_note":"Probabilidades exploratórias condicionadas ao modelo e às incertezas assumidas; ainda não calibradas em backtest eleitoral."}
+            "method_note":"Inclinação local Huber somente após cobertura e variação suficientes, limitada a 25 pontos percentuais; UFs sem dados recebem referência regional/nacional. A projeção presidencial só é exibida com cobertura territorial e arquivos conciliados.",
+            "probability_note":"Probabilidade de vitória indisponível: o modelo ainda não foi calibrado em backtest eleitoral para este cenário."}
 
 
 def build_snapshot(office: str, turn: int):
     if office not in CANDIDATES:
         raise ValueError("Cargo desconhecido")
     candidates = CANDIDATES[office]
-    history_office = f"{office}:turn2-v2" if office == "president" and turn == 2 else office
+    history_office = f"{office}:turn2-v3" if office == "president" and turn == 2 else office
     live=live_rows(office,turn)
     rows=live["rows"]
     for r in rows:
@@ -424,6 +441,18 @@ def build_snapshot(office: str, turn: int):
         forecast["electorate"]=official_result["electorate"]
         forecast["counted_electorate"]=official_result["counted_electorate"]
         forecast["progress"]=official_result["progress"]
+    if office == "president" and turn == 2:
+        check=live.get("national_check") or {}
+        official_valid=check.get("official_valid_votes") or 0
+        area_valid=check.get("areas_valid_votes") or 0
+        regions={row.get("region") for row in rows if row.get("valid_votes",0)>=1000 and row.get("region") != "Exterior"}
+        forecast["projection_ready"]=(forecast["progress"]>=.15 and len(regions)>=4 and
+                                      official_valid>0 and abs(official_valid-area_valid)<=.05*official_valid)
+        forecast["projection_reason"]=("Cobertura territorial insuficiente ou arquivos BR/UF divergentes."
+                                       if not forecast["projection_ready"] else "")
+    else:
+        forecast["projection_ready"]=forecast["valid_votes"]>0
+        forecast["projection_reason"]=""
     observed=({item["key"]:item["observed_pct"] for item in forecast["candidates"]}
               if official_result else forecast_raw(rows,candidates))
     state_points=[{"uf":row["uf"],"progress":row["progress"],"valid_votes":row["valid_votes"],
@@ -438,7 +467,7 @@ def build_snapshot(office: str, turn: int):
                                                      "candidate_votes":{c["key"]:row.get("candidates",{}).get(c["key"],{}).get("votes",0) for c in candidates}}
                                                     for row in rows]},sort_keys=True).encode()).hexdigest()
     if forecast["valid_votes"]>0 and (not trend or trend[-1].get("signature")!=signature):
-        projection={c["key"]:c["projected_pct"] for c in forecast["candidates"]}
+        projection={c["key"]:c["projected_pct"] if forecast["projection_ready"] else None for c in forecast["candidates"]}
         ElectionPoint.objects.get_or_create(signature=signature,defaults={
             "office":history_office,"turn":turn,"election_id":live["election_id"],
             "progress":forecast["progress"],"valid_votes":forecast["valid_votes"],
@@ -453,7 +482,7 @@ def build_snapshot(office: str, turn: int):
 
 def build_shared_live_snapshot(office: str, turn: int):
     """Refresh a live snapshot once per cache window; concurrent visitors read the same copy."""
-    version = ":turn2-v2" if office == "president" and turn == 2 else ""
+    version = ":turn2-v3" if office == "president" and turn == 2 else ""
     snapshot_key = f"shared-live-snapshot:{office}:{turn}{version}"
     lock_key = f"shared-live-lock:{office}:{turn}{version}"
     error_key = f"shared-live-error:{office}:{turn}{version}"
