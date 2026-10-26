@@ -386,6 +386,45 @@ def _forecast(rows, office):
             "probability_note":"Probabilidade de vitória indisponível: o modelo ainda não foi calibrado em backtest eleitoral para este cenário."}
 
 
+def _mathematical_result(office: str, turn: int, official_row: dict):
+    """Certainty bound: every elector in an uncounted section could still cast a valid vote."""
+    electorate = round(official_row.get("electorate") or 0)
+    counted = round(official_row.get("counted_electorate") or 0)
+    valid = round(official_row.get("valid_votes") or 0)
+    candidates = CANDIDATES[office]
+    votes = {c["key"]: round(official_row.get("candidates", {}).get(c["key"], {}).get("votes") or 0)
+             for c in candidates}
+    result = {"available": False, "remaining_electorate": None, "winner_key": None,
+              "candidates": [], "rule": "worst_case_remaining_electorate"}
+    if electorate <= 0 or counted < 0 or counted > electorate or valid <= 0 or valid > counted or valid < sum(votes.values()):
+        return result
+    remaining = electorate - counted
+    result["remaining_electorate"] = remaining
+    if turn == 2:
+        if len(candidates) != 2 or sum(votes.values()) != valid:
+            return result
+        for c in candidates:
+            key = c["key"]
+            rival = next(other["key"] for other in candidates if other["key"] != key)
+            needed = max(0, (votes[rival] + remaining - votes[key]) // 2 + 1)
+            result["candidates"].append({"key": key, "votes": votes[key],
+                                         "votes_to_clinch": needed,
+                                         "can_still_clinch": needed <= remaining})
+    else:
+        # No 1º turno é necessária maioria absoluta de todos os votos válidos.
+        maximum_valid = valid + remaining
+        for c in candidates:
+            key = c["key"]
+            needed = max(0, maximum_valid // 2 + 1 - votes[key])
+            result["candidates"].append({"key": key, "votes": votes[key],
+                                         "votes_to_clinch": needed,
+                                         "can_still_clinch": needed <= remaining})
+    result["available"] = True
+    result["winner_key"] = next((item["key"] for item in result["candidates"]
+                                 if item["votes_to_clinch"] == 0), None)
+    return result
+
+
 def build_snapshot(office: str, turn: int):
     if office not in CANDIDATES:
         raise ValueError("Cargo desconhecido")
@@ -451,6 +490,10 @@ def build_snapshot(office: str, turn: int):
         forecast["electorate"]=official_result["electorate"]
         forecast["counted_electorate"]=official_result["counted_electorate"]
         forecast["progress"]=official_result["progress"]
+    certainty_source = official_result if office == "president" else next(
+        (row for row in rows if row["uf"] == "MG"), None)
+    forecast["mathematical_result"] = (_mathematical_result(office, turn, certainty_source)
+                                      if certainty_source else {"available": False})
     if office == "president" and turn == 2:
         check=live.get("national_check") or {}
         official_valid=check.get("official_valid_votes") or 0

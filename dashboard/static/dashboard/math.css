@@ -1,0 +1,63 @@
+.mathematical-status {
+  margin-bottom: 13px;
+  border-left: 4px solid #8fa5ba;
+}
+
+.mathematical-status.is-elected {
+  border-left-color: #15986d;
+  background: #f3fbf6;
+}
+
+.mathematical-status.is-elected .math-heading h2 { color: #138158; }
+
+.math-heading h2 {
+  font-size: 17px;
+  margin: 5px 0;
+}
+
+.math-heading p,
+.math-footnote {
+  font-size: 10px;
+  color: #697b8e;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.math-candidates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.math-candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 210px;
+  flex: 1;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e5ebf0;
+  border-left: 3px solid var(--candidate-color);
+  border-radius: 8px;
+}
+
+.math-candidate span {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+}
+
+.math-candidate strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.math-footnote b { color: #20354b; }
+
+@media (max-width: 680px) {
+  .math-candidate { min-width: 100%; }
+}

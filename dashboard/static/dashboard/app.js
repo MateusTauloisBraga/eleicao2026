@@ -57,6 +57,25 @@
       '</div></article>'
     ).join('');
   }
+  function mathematicalStatus(){
+    const box=$('mathematicalStatus'), result=data.mathematical_result, cs=candidates(office());
+    box.classList.toggle('is-elected',Boolean(result?.winner_key));
+    if(!result?.available){
+      box.innerHTML='<div class="math-heading"><span class="eyebrow">VITÓRIA MATEMÁTICA</span><h2>Aguardando dados oficiais suficientes</h2></div>';
+      return;
+    }
+    const winner=cs.find(c=>c.key===result.winner_key);
+    const rows=result.candidates.map(item=>{
+      const c=cs.find(x=>x.key===item.key);
+      if(!c)return '';
+      const value=item.votes_to_clinch===0?'Vitória assegurada':item.can_still_clinch?'Faltam '+nfmt(item.votes_to_clinch)+' votos':'Sem possibilidade matemática neste turno';
+      return '<div class="math-candidate" style="--candidate-color:'+c.color+'"><span><i class="detail-dot" style="background:'+c.color+'"></i>'+esc(c.name)+'</span><strong>'+value+'</strong></div>';
+    }).join('');
+    const heading=winner?'Matematicamente eleito: '+winner.name:result.remaining_electorate===0&&$('turnSelect').value==='1'?'Ninguém alcançou maioria absoluta no 1º turno':'Vitória ainda não definida matematicamente';
+    const rivals=$('turnSelect').value==='1'?'nos demais candidatos':'no adversário';
+    const explanation=winner?'Mesmo se todos os eleitores das seções pendentes votarem '+rivals+', a vitória não pode ser revertida.':'Votos adicionais necessários para garantir a vitória mesmo se todos os demais eleitores das seções pendentes votarem validamente '+rivals+'.';
+    box.innerHTML='<div class="math-heading"><span class="eyebrow">VOTOS OFICIAIS · '+($('turnSelect').value==='1'?'MAIORIA ABSOLUTA':'2º TURNO')+'</span><h2>'+esc(heading)+'</h2><p>'+esc(explanation)+'</p></div><div class="math-candidates">'+rows+'</div><p class="math-footnote">Eleitores em seções ainda não totalizadas: <b>'+nfmt(result.remaining_electorate)+'</b>. Cálculo conservador com votos oficiais do TSE; a proclamação formal do resultado cabe ao TSE.</p>';
+  }
   function renderReconciliation(){
     if(office()==='governor_mg'){
       $('notice').textContent='Minas Gerais: Cleitinho Azevedo foi eleito governador no 1º turno. Não há apuração de 2º turno para esse cargo no estado.';
@@ -74,7 +93,7 @@
   }
   function chart(){const svg=$('trendChart'),cs=candidates(office()),hist=data.history||[],W=980,H=430,L=65,R=20,T=22,B=48,pw=W-L-R,ph=H-T-B,maxY=Math.max(60,...data.candidates.map(c=>Math.ceil(c.projected_pct/10)*10+5)),x=p=>L+Math.max(0,Math.min(1,p))*pw,y=v=>T+ph-(Math.max(0,Math.min(maxY,v))/maxY)*ph;let s='';for(let v=0;v<=maxY;v+=10)s+='<line class="grid" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'"/><text class="axis" x="'+(L-10)+'" y="'+(y(v)+3)+'" text-anchor="end">'+v+'%</text>';for(let p=0;p<=1.001;p+=.2)s+='<line class="grid vert" x1="'+x(p)+'" x2="'+x(p)+'" y1="'+T+'" y2="'+(T+ph)+'"/><text class="axis" x="'+x(p)+'" y="'+(H-20)+'" text-anchor="middle">'+Math.round(100*p)+'%</text>';cs.forEach(c=>{const obs=hist.map(h=>({p:h.progress,v:h.observed?.[c.key]})).filter(z=>z.v!=null),pr=hist.map(h=>({p:h.progress,v:h.forecast?.[c.key]})).filter(z=>z.v!=null);if(obs.length)s+='<path class="observed" stroke="'+c.color+'" d="'+obs.map((z,i)=>(i?'L':'M')+x(z.p)+','+y(z.v)).join(' ')+'"/>';if(pr.length&&data.valid_votes&&data.projection_ready)s+='<path class="pred" stroke="'+c.color+'" d="'+pr.map((z,i)=>(i?'L':'M')+x(z.p)+','+y(z.v)).join(' ')+'"/>';obs.forEach(z=>s+='<circle cx="'+x(z.p)+'" cy="'+y(z.v)+'" r="3.5" fill="'+c.color+'"><title>'+c.name+' observado '+pct(z.v)+' com '+pct(100*z.p)+' apurado</title></circle>');pr.forEach(z=>s+='<circle cx="'+x(z.p)+'" cy="'+y(z.v)+'" r="3.5" fill="white" stroke="'+c.color+'" stroke-width="1.5"><title>'+c.name+' projetado '+pct(z.v)+' com '+pct(100*z.p)+' apurado</title></circle>');const last=data.candidates.find(z=>z.key===c.key);if(last&&data.valid_votes&&data.projection_ready)s+='<circle class="forecast" cx="'+x(1)+'" cy="'+y(last.projected_pct)+'" r="6" stroke="'+c.color+'"><title>Projeção final '+c.name+': '+pct(last.projected_pct)+'</title></circle>'});s+='<text class="axis-title" x="'+(L+pw/2)+'" y="'+(H-2)+'" text-anchor="middle">Eleitorado totalizado</text>';svg.innerHTML=s;$('chartLegend').innerHTML=cs.map(c=>'<span><i style="background:'+c.color+'"></i>'+esc(c.name)+' · observado</span><span class="dash"><i style="border-color:'+c.color+'"></i>projeção</span>').join('')}
   function table(){const cs=candidates(office()),rows=data.states.filter(r=>office()==='president'||r.uf==='MG').sort((a,b)=>b.electorate-a.electorate);$('stateRows').innerHTML=rows.map(r=>{const lead=[...cs].sort((a,b)=>((data.projection_ready?r.forecast?.[b.key]:r.candidates?.[b.key]?.share)||0)-((data.projection_ready?r.forecast?.[a.key]:r.candidates?.[a.key]?.share)||0))[0],obs=r.candidates?.[lead.key]?.share,pred=data.projection_ready?r.forecast?.[lead.key]:null,h=r.history||[],ix=cs.findIndex(c=>c.key===lead.key),vals=h.map(p=>p.shares?.[ix]).filter(v=>v!=null),slope=vals.length>1?(vals.at(-1)-vals[0])*100/(h.at(-1).progress-h[0].progress||1):0;return '<tr><td><b>'+r.uf+'</b><small>'+esc(stateName(r.uf,r))+'</small></td><td class="num">'+nfmt(r.electorate)+'</td><td class="num">'+pct(100*r.progress)+'<div class="bar"><i style="width:'+Math.min(100,100*r.progress)+'%"></i></div></td><td><i class="dot" style="background:'+((data.projection_ready||r.valid_votes>0)?lead.color:'#c9d3df')+'"></i>'+((data.projection_ready||r.valid_votes>0)?esc(lead.name):'Aguardando boletins')+'</td><td class="num">'+pct(obs==null?null:100*obs)+'</td><td class="num strong">'+pct(pred==null||!data.valid_votes?null:100*pred)+'</td><td class="trend">'+(data.projection_ready&&data.valid_votes&&vals.length>1?(slope>.15?'↑ subindo':slope<-.15?'↓ caindo':'→ estável'):'— sem dados')+'</td></tr>'}).join('')}
-  function render(){metrics();renderReconciliation();candidateSummary();map();renderExterior();chart();table()}
+  function render(){metrics();mathematicalStatus();renderReconciliation();candidateSummary();map();renderExterior();chart();table()}
   async function load(){
     const url=new URL(window.DASHBOARD.snapshotUrl,location.href);
     url.searchParams.set('office',office());url.searchParams.set('turn',$('turnSelect').value);

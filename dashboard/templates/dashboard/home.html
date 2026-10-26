@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Eleição 2026 · Apuração e tendências</title>
   <link rel="stylesheet" href="{% static 'dashboard/styles.css' %}?v=3">
+  <link rel="stylesheet" href="{% static 'dashboard/math.css' %}?v=1">
 </head>
 <body>
   <header class="topbar">
@@ -26,6 +27,7 @@
     </section>
     <div class="notice" id="notice" role="status">Aguardando os primeiros boletins oficiais do TSE.</div>
     <section class="metrics" id="metrics"></section>
+    <section class="card mathematical-status" id="mathematicalStatus" aria-live="polite"></section>
     <section class="card candidate-summary" aria-labelledby="candidateSummaryTitle">
         <div class="cardhead"><div><div class="eyebrow">RESULTADO E MODELO</div><h2 id="candidateSummaryTitle">Percentual por candidato</h2><p class="subhead">Votos apurados pelo TSE e projeção final. Na disputa presidencial, o exterior entra na apuração nacional.</p></div></div>
       <div class="candidate-summary-grid" id="candidateSummary"></div>
@@ -54,6 +56,6 @@
   </main>
   <main id="pollsView" class="poll-view" role="tabpanel" aria-labelledby="pollsTab" hidden><iframe id="pollsFrame" title="Agregado de pesquisas eleitorais e previsões" src="{% static 'dashboard/polls.html' %}" loading="lazy"></iframe></main>
   <script>window.DASHBOARD={snapshotUrl:"{% url 'snapshot' %}",mapUrl:"{% static 'dashboard/states.geojson' %}"};</script>
-  <script src="{% static 'dashboard/app.js' %}?v=13"></script>
+  <script src="{% static 'dashboard/app.js' %}?v=14"></script>
 </body>
 </html>
